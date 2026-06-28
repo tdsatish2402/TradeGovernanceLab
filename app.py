@@ -29,12 +29,12 @@ st.set_page_config(page_title="Trade Governance Lab", page_icon="🌐", layout="
 SHOW_TIME_CHARTS = False          # turn on when more than one year of data is available
 NO_MEASURE = "No Specific Measure"
 
-# Bright purple: titles, headings, accents only.
-PRIMARY = "#9A05A9"
-HEADING = "#6A1B9A"
+# Deep ocean-blue: titles, headings, accents (replaces the previous jarring magenta).
+PRIMARY = "#1F5A7A"
+HEADING = "#234E63"
 # Charts: muted, harmonious palette that is easy on the eye.
 CHART = "#5B8DA6"                 # single-series bars / heatmap accent (soft steel-blue)
-PALETTE = ["#5B8DA6", "#E0A458", "#7FB685", "#C98BB9", "#5BA8A0", "#B5838D", "#8C9EC4", "#D4B483"]
+PALETTE = ["#5B8DA6", "#E0A458", "#7FB685", "#9D8EC4", "#5BA8A0", "#C98BB9", "#8C9EC4", "#D4B483"]
 HEAT_SCALE = ["#F4F7F9", "#BBD0DC", "#7FA9C0", "#4E7E9C", "#2E5C78"]
 
 # Short, readable forum names (code kept for reference).
@@ -57,7 +57,7 @@ pio.templates["tgl"].layout.update(
     title=dict(font=dict(size=15, color="#2b2740"), x=0, xanchor="left"),
     xaxis=dict(automargin=True),
     yaxis=dict(automargin=True),
-    legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="left", x=0, title_text=""),
+    legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, title_text=""),
 )
 pio.templates.default = "tgl"
 
@@ -66,10 +66,11 @@ st.markdown(
     <style>
       .block-container {{ padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1500px; }}
       h1,h2,h3,h4 {{ color: {HEADING}; }}
-      .app-title {{ text-align:center; color:{PRIMARY}; font-weight:800;
-                    font-size: clamp(1.7rem, 4vw, 2.6rem); margin: 0 0 2px 0; letter-spacing:-.5px; }}
-      .app-sub {{ text-align:center; color:#6b6680; font-size: clamp(.95rem, 2vw, 1.1rem);
-                  font-weight:400; margin: 0 0 18px 0; }}
+      .app-title {{ text-align:center; color:{PRIMARY}; font-weight:700; width:100%;
+                    font-size: clamp(1.6rem, 3.6vw, 2.3rem); line-height:1.25;
+                    margin: 0 0 4px 0; padding: 2px 6px; overflow:visible; }}
+      .app-sub {{ text-align:center; color:#6b6680; font-size: clamp(.92rem, 1.8vw, 1.05rem);
+                  font-weight:400; margin: 0 auto 18px auto; max-width: 760px; padding: 0 6px; }}
       .stTabs [data-baseweb="tab-list"] {{ gap: 4px; flex-wrap: wrap; justify-content:center; }}
       .stTabs [data-baseweb="tab"] {{ font-weight:600; padding:8px 16px; border-radius:10px 10px 0 0; }}
       .stTabs [aria-selected="true"] {{ background:{PRIMARY}12; color:{PRIMARY};
@@ -151,6 +152,18 @@ def show(container, fig, key):
     container.plotly_chart(fig, width="stretch", config=PCONF, key=key)
 
 
+def int_axis(fig, maxval, axis="x"):
+    """Force whole-number ticks on a count axis (interaction counts are never fractional)."""
+    upd = fig.update_xaxes if axis == "x" else fig.update_yaxes
+    if maxval is None or maxval <= 1:
+        upd(tickformat="d", dtick=1, rangemode="tozero")
+    elif maxval <= 10:
+        upd(tickformat="d", dtick=1)
+    else:
+        upd(tickformat="d")           # auto ticks already land on integers for larger ranges
+    return fig
+
+
 def hbar(data, title, height=None):
     """Single-series horizontal bar, biggest on top, muted colour."""
     data = data.sort_values("count")
@@ -158,6 +171,7 @@ def hbar(data, title, height=None):
     fig = px.bar(data, x="count", y="label", orientation="h", title=title)
     fig.update_traces(marker_color=CHART)
     fig.update_layout(height=h, yaxis_title=None, xaxis_title=None, showlegend=False)
+    int_axis(fig, data["count"].max() if len(data) else 0)
     return fig
 
 
@@ -169,6 +183,8 @@ def grouped_hbar(data, ycol, color, title, top=15, height=None):
                  title=title, color_discrete_sequence=PALETTE)
     fig.update_layout(height=h, yaxis_title=None, xaxis_title=None, barmode="stack",
                       legend_title_text="")
+    totals = data.groupby(ycol)["count"].sum().max() if len(data) else 0
+    int_axis(fig, totals)
     return fig
 
 
@@ -303,7 +319,10 @@ with tab_overview:
     show(c1, hbar(vc(real_measures["Measure"], 10), "Most-discussed measures"), "ov_measures")
     pie = px.pie(dom, values="count", names="label", title="Domain family share", hole=0.5,
                  color_discrete_sequence=PALETTE)
-    pie.update_layout(height=380)
+    pie.update_traces(textposition="inside", texttemplate="%{percent:.0%}",
+                      insidetextorientation="horizontal", sort=False)
+    pie.update_layout(height=380, uniformtext_minsize=11, uniformtext_mode="hide",
+                      legend=dict(orientation="h", y=-0.12, x=0.5, xanchor="center"))
     show(c2, pie, "ov_domain")
 
     c3, c4 = st.columns(2)
@@ -359,6 +378,7 @@ with tab_gov:
                  title="How each body engages", color_discrete_sequence=PALETTE)
     fig.update_layout(height=380, barmode="stack", xaxis_title=None, yaxis_title=None,
                       legend_title_text="")
+    int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
     show(c4, fig, "gov_bodyengage")
 
 # ======================================================================================
