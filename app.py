@@ -428,7 +428,42 @@ with tab_dom:
     show(c2, hbar(vc(frows["Governance function"]), "How it is discussed"), "dom_func")
 
     c3, c4 = st.columns(2)
-    show(c3, hbar(vc(frows["Participant"], 10), "Most engaged members"), "dom_members")
+    member_func = (
+        frows.groupby(["Participant", "Governance function"])
+             .size()
+             .reset_index(name="count")
+    )
+    top_members = (
+        frows["Participant"]
+             .value_counts()
+             .head(10)
+             .index
+    )
+    member_func = member_func[member_func["Participant"].isin(top_members)]
+    fig = px.bar(
+        member_func,
+        y="Participant",
+        x="count",
+        color="Governance function",
+        orientation="h",
+        barmode="stack",
+        title="Most engaged members by governance function",
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_layout(
+        height=420,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title_text="",
+        legend=dict(
+            orientation="h",
+            y=-0.25,
+            x=0.5,
+            xanchor="center"
+        ),
+    )
+    int_axis(fig, member_func.groupby("Participant")["count"].sum().max() if len(member_func) else 0)
+    show(c3, fig, "dom_members_stack")
     show(c4, hbar(vc(frows["Forum"]), "Where it is discussed"), "dom_forum")
 
 # ======================================================================================
