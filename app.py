@@ -64,11 +64,11 @@ pio.templates.default = "tgl"
 st.markdown(
     f"""
     <style>
-      .block-container {{ padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1500px; }}
+      .block-container {{ padding-top: 2.4rem; padding-bottom: 2rem; max-width: 1500px; }}
       h1,h2,h3,h4 {{ color: {HEADING}; }}
       .app-title {{ text-align:center; color:{PRIMARY}; font-weight:700; width:100%;
-                    font-size: clamp(1.6rem, 3.6vw, 2.3rem); line-height:1.25;
-                    margin: 0 0 4px 0; padding: 2px 6px; overflow:visible; }}
+                    font-size: clamp(1.6rem, 3.6vw, 2.3rem); line-height:1.5;
+                    margin: 0 0 4px 0; padding: 8px 6px 2px 6px; overflow:visible; }}
       .app-sub {{ text-align:center; color:#6b6680; font-size: clamp(.92rem, 1.8vw, 1.05rem);
                   font-weight:400; margin: 0 auto 18px auto; max-width: 760px; padding: 0 6px; }}
       .stTabs [data-baseweb="tab-list"] {{ gap: 4px; flex-wrap: wrap; justify-content:center; }}
@@ -321,8 +321,10 @@ with tab_overview:
                  color_discrete_sequence=PALETTE)
     pie.update_traces(textposition="inside", texttemplate="%{percent:.0%}",
                       insidetextorientation="horizontal", sort=False)
-    pie.update_layout(height=380, uniformtext_minsize=11, uniformtext_mode="hide",
-                      legend=dict(orientation="h", y=-0.12, x=0.5, xanchor="center"))
+    pie.update_layout(height=440, margin=dict(t=50, b=110, l=20, r=20),
+                      uniformtext_minsize=11, uniformtext_mode="hide",
+                      legend=dict(orientation="h", yanchor="top", y=-0.08, x=0.5,
+                                  xanchor="center", font=dict(size=12)))
     show(c2, pie, "ov_domain")
 
     c3, c4 = st.columns(2)
