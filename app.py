@@ -37,13 +37,14 @@ CHART = "#5B8DA6"                 # single-series bars / heatmap accent (soft st
 PALETTE = ["#5B8DA6", "#E0A458", "#7FB685", "#9D8EC4", "#5BA8A0", "#C98BB9", "#8C9EC4", "#D4B483"]
 HEAT_SCALE = ["#F4F7F9", "#BBD0DC", "#7FA9C0", "#4E7E9C", "#2E5C78"]
 
-# Short, readable forum names (code kept for reference).
-FORUM_NAMES = {
-    "GC": "General Council (GC)",
-    "CTG": "Trade in Goods (CTG)",
-    "CTD": "Trade & Development (CTD)",
-    "CTE": "Trade & Environment (CTE)",
-    "CTF": "Trade Facilitation (CTF)",
+# WTO bodies shown by their short codes everywhere (full names kept for the filter tooltip).
+FORUM_NAMES = {"GC": "GC", "CTG": "CTG", "CTD": "CTD", "CTE": "CTE", "CTF": "CTF"}
+FORUM_FULL = {
+    "GC": "General Council",
+    "CTG": "Council for Trade in Goods",
+    "CTD": "Committee on Trade & Development",
+    "CTE": "Committee on Trade & Environment",
+    "CTF": "Committee on Trade Facilitation",
 }
 
 PCONF = {"displayModeBar": False, "responsive": True}   # hide plotly toolbar → no title overlap
@@ -182,7 +183,8 @@ def grouped_hbar(data, ycol, color, title, top=15, height=None):
     fig = px.bar(data, x="count", y=ycol, color=color, orientation="h",
                  title=title, color_discrete_sequence=PALETTE)
     fig.update_layout(height=h, yaxis_title=None, xaxis_title=None, barmode="stack",
-                      legend_title_text="")
+                      legend_title_text="", margin=dict(t=50, b=80, l=10, r=18),
+                      legend=dict(orientation="h", yanchor="top", y=-0.12, x=0.5, xanchor="center"))
     totals = data.groupby(ycol)["count"].sum().max() if len(data) else 0
     int_axis(fig, totals)
     return fig
@@ -252,7 +254,9 @@ df = load_data()
 st.sidebar.title("🌐 Filters")
 st.sidebar.caption("Leave a filter empty to include everything. Applies across all tabs.")
 
-body_filter = st.sidebar.multiselect("WTO Body", sorted(df["Forum"].dropna().unique()))
+body_filter = st.sidebar.multiselect(
+    "WTO Body", sorted(df["Forum"].dropna().unique()),
+    help="  ·  ".join(f"{c} = {n}" for c, n in FORUM_FULL.items()))
 member_filter = st.sidebar.multiselect("Member", sorted(df["Participant"].dropna().unique()))
 domain_filter = st.sidebar.multiselect("Domain Family", sorted(df["Domain Family"].dropna().unique()))
 func_filter = st.sidebar.multiselect("Governance Function", sorted(df["Governance function"].dropna().unique()))
@@ -378,8 +382,9 @@ with tab_gov:
     stacked = filtered.groupby(["Forum", "Governance function"]).size().reset_index(name="count")
     fig = px.bar(stacked, y="Forum", x="count", color="Governance function", orientation="h",
                  title="How each body engages", color_discrete_sequence=PALETTE)
-    fig.update_layout(height=380, barmode="stack", xaxis_title=None, yaxis_title=None,
-                      legend_title_text="")
+    fig.update_layout(height=400, barmode="stack", xaxis_title=None, yaxis_title=None,
+                      legend_title_text="", margin=dict(t=50, b=90, l=10, r=18),
+                      legend=dict(orientation="h", yanchor="top", y=-0.15, x=0.5, xanchor="center"))
     int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
     show(c4, fig, "gov_bodyengage")
 
