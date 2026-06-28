@@ -100,6 +100,13 @@ def load_data():
     df.columns = df.columns.str.strip()
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df["Month"] = df["Date"].dt.to_period("M").dt.to_timestamp()
+    return df
+
+
+def add_forum_labels(df):
+    # Done OUTSIDE the cached loader so edits to FORUM_NAMES take effect immediately
+    # (st.cache_data does not track changes to module-level globals used inside it).
+    df = df.copy()
     df["Forum"] = df["WTO_Forum"].map(FORUM_NAMES).fillna(df["WTO_Forum"])
     return df
 
@@ -245,7 +252,7 @@ def bodies_phrase(data):
     return f"<b>{n} WTO bodies</b>"
 
 
-df = load_data()
+df = add_forum_labels(load_data())
 
 # --------------------------------------------------------------------------------------
 # Global filters (sidebar, multiselect, empty = all)
