@@ -422,9 +422,6 @@ with tab_gov:
                       legend=dict(orientation="h", yanchor="top", y=-0.32, x=0.5, xanchor="center"))
     int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
 
-    if "bdata" not in locals():
-        bdata = filtered
-
     with st.expander("Read the underlying interactions"):
         cols_show = [
             c
@@ -437,10 +434,10 @@ with tab_gov:
                 "Measure",
                 "Interaction_Summary",
             ]
-            if c in filtered.columns
+            if c in bdata.columns
         ]
         st.dataframe(
-            filtered[cols_show].sort_values("Date"),
+            bdata[cols_show].sort_values("Date"),
             width="stretch",
             hide_index=True,
         )
