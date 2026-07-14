@@ -293,8 +293,8 @@ if filtered.empty:
     st.warning("No rows match the current filters. Use **Reset filters** in the sidebar.")
     st.stop()
 
-tab_overview, tab_gov, tab_dom, tab_mem, tab_meas, tab_exp = st.tabs(
-    ["📊 Overview", "🏛️ Governance", "🗂️ Domains", "👥 Members", "📑 Measures", "🔎 Explorer"]
+tab_overview, tab_gov, tab_dom, tab_mem, tab_meas, tab_bodies, tab_exp = st.tabs(
+    ["📊 Overview", "🏛️ Governance", "🗂️ Domains", "👥 Members", "📑 Measures", "🏢 WTO Bodies", "🔎 Explorer"]
 )
 
 # ======================================================================================
@@ -580,6 +580,112 @@ with tab_meas:
         show(c4, hbar(vc(mdata["Forum"]), "Where they are discussed"), "meas_forum")
     else:
         st.info("No named measures in the current view — adjust the filters.")
+
+
+# ======================================================================================
+# WTO BODIES
+# ======================================================================================
+with tab_bodies:
+    bodies = vc(filtered["Forum"])
+    top_body = vc(filtered["Forum"], 1)
+
+    summary = f"This view covers <b>{filtered['Forum'].nunique()} WTO bodies</b>. "
+    if not top_body.empty:
+        summary += f"The most active body is <b>{top_body.iloc[0]['label']}</b>. "
+    summary += "Compare participation, policy focus and governance patterns across WTO bodies."
+    ai_summary(summary)
+
+    show(st, hbar(bodies, "Interactions by WTO body"), "body_overview")
+
+    st.markdown("#### Focus on WTO bodies")
+    body_opts = sorted(filtered["Forum"].dropna().unique())
+    body_sel = st.multiselect(
+        "WTO bodies (leave empty for all)",
+        body_opts,
+        key="body_sel",
+    )
+
+    bdata = filtered if not body_sel else filtered[filtered["Forum"].isin(body_sel)]
+
+    metric_strip(bdata)
+
+    c1, c2 = st.columns(2)
+    show(c1, hbar(vc(bdata["Participant"], 12), "Most active members"), "body_members")
+    show(c2, hbar(vc(bdata[bdata["Measure"] != NO_MEASURE]["Measure"], 12),
+                  "Most discussed measures"), "body_measures")
+
+    c3, c4 = st.columns(2)
+    show(c3, hbar(vc(bdata["Domain Family"]), "Most discussed domain families"), "body_domains")
+    show(c4, hbar(vc(bdata["Governance function"]), "Governance functions"), "body_functions")
+
+    st.markdown("#### Cross-body comparisons")
+
+    c5, c6 = st.columns(2)
+
+    stacked = (
+        filtered.groupby(["Forum", "Governance function"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    fig = px.bar(
+        stacked,
+        y="Forum",
+        x="count",
+        color="Governance function",
+        orientation="h",
+        barmode="stack",
+        title="Governance functions across WTO bodies",
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_layout(
+        height=420,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title_text="",
+        legend=dict(
+            orientation="h",
+            y=-0.25,
+            x=0.5,
+            xanchor="center",
+        ),
+    )
+    int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
+    show(c5, fig, "body_stack")
+
+    heat = pd.crosstab(filtered["Domain Family"], filtered["Forum"])
+    if heat.size:
+        show(
+            c6,
+            heatmap(
+                heat,
+                "Domain families across WTO bodies",
+                height=420,
+                tickangle=-20,
+            ),
+            "body_heat",
+        )
+
+    with st.expander("Read the underlying interactions"):
+        cols_show = [
+            c
+            for c in [
+                "Date",
+                "Participant",
+                "Forum",
+                "Domain Family",
+                "Governance function",
+                "Measure",
+                "Interaction_Summary",
+            ]
+            if c in bdata.columns
+        ]
+        st.dataframe(
+            bdata[cols_show].sort_values("Date"),
+            width="stretch",
+            hide_index=True,
+        )
+
 
 # ======================================================================================
 # EXPLORER
