@@ -297,15 +297,14 @@ st.caption(
     "**CTE** = Committee on Trade and Environment · "
     "**CTF** = Committee on Trade Facilitation"
 )
-st.info("**Last updated:** 14 July 2026   |   **Period covered:** 1 Jan 2026 to 15 Jun 2026")
 
 
 if filtered.empty:
     st.warning("No rows match the current filters. Use **Reset filters** in the sidebar.")
     st.stop()
 
-tab_overview, tab_bodies, tab_gov, tab_dom, tab_mem, tab_meas, tab_exp = st.tabs(
-    ["📊 Overview", "🏢 WTO Bodies", "🏛️ Governance", "🗂️ Domains", "👥 Members", "📑 Measures", "🔎 Explorer"]
+tab_overview, tab_gov, tab_dom, tab_mem, tab_meas, tab_bodies, tab_exp = st.tabs(
+    ["📊 Overview", "🏛️ Governance", "🗂️ Domains", "👥 Members", "📑 Measures", "🏢 WTO Bodies", "🔎 Explorer"]
 )
 
 # ======================================================================================
@@ -343,7 +342,8 @@ with tab_overview:
             "Measures",
             "Members",
             "Domain Families",
-                        "WTO Bodies",
+            "Governance Functions",
+            "WTO Bodies",
         ],
         horizontal=True,
         key="overview_selector",
@@ -355,6 +355,8 @@ with tab_overview:
         fig = hbar(vc(filtered["Participant"], 12), "Top members (by interactions)")
     elif view == "Domain Families":
         fig = hbar(vc(filtered["Domain Family"]), "Domain family share")
+    elif view == "Governance Functions":
+        fig = hbar(vc(filtered["Governance function"]), "How members engage")
     else:
         fig = hbar(vc(filtered["Forum"]), "Activity by WTO body")
 
@@ -407,7 +409,7 @@ with tab_gov:
         show(st, grouped_hbar(topic_dim, "Topic", "Dimension",
                               "Governance topics (coloured by dimension)", top=14), "gov_topics")
 
-    c3 = st.container()
+    c3, c4 = st.columns(2)
     # Domain families (long names) on the y-axis where they have room; functions angled on x.
     heat = pd.crosstab(filtered["Domain Family"], filtered["Governance function"])
     if heat.size:
@@ -421,6 +423,258 @@ with tab_gov:
                       legend_title_text="", margin=dict(t=50, b=120, l=10, r=18),
                       legend=dict(orientation="h", yanchor="top", y=-0.32, x=0.5, xanchor="center"))
     int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
+    show(c4, fig, "gov_bodyengage")
+
+# ======================================================================================
+# DOMAINS
+# ======================================================================================
+with tab_dom:
+    sub_long_all = melt_subdomains(filtered)
+    fam = vc(filtered["Domain Family"])
+    subs = vc(sub_long_all["Sub-Domain"], 1)
+
+    summary = (f"Discussion spans <b>{filtered['Domain Family'].nunique()} domain families</b> and "
+               f"<b>{sub_long_all['Sub-Domain'].nunique()} sub-domains</b>. ")
+    if not fam.empty:
+        summary += (f"<b>{fam.iloc[0]['label']}</b> is the largest family "
+                    f"({pct(fam.iloc[0]['count'], len(filtered))}% of interactions). ")
+    if not subs.empty:
+        summary += f"The most discussed sub-domain is <b>{subs.iloc[0]['label']}</b>. "
+    summary += "Use the focus filter to narrow to one or more families."
+    ai_summary(summary)
+
+    # Cleaner than a treemap: sub-domains as bars, coloured by their family.
+    sub_fam = sub_long_all.groupby(["Domain Family", "Sub-Domain"]).size().reset_index(name="count")
+    if not sub_fam.empty:
+        show(st, grouped_hbar(sub_fam, "Sub-Domain", "Domain Family",
+                              "Sub-domains (coloured by domain family)", top=16), "dom_subfam")
+
+    st.markdown("#### Focus on domain families")
+    fam_opts = sorted(filtered["Domain Family"].dropna().unique())
+    fam_sel = st.multiselect("Domain families (leave empty for all)", fam_opts, key="dom_sel")
+    frows = filtered if not fam_sel else filtered[filtered["Domain Family"].isin(fam_sel)]
+    fsub = sub_long_all if not fam_sel else sub_long_all[sub_long_all["Domain Family"].isin(fam_sel)]
+    scope = "all families" if not fam_sel else (fam_sel[0] if len(fam_sel) == 1 else f"{len(fam_sel)} families")
+
+    c1, c2 = st.columns(2)
+    show(c1, hbar(vc(fsub["Sub-Domain"], 12), f"Sub-domains · {scope}"), "dom_subs")
+    show(c2, hbar(vc(frows["Governance function"]), "How it is discussed"), "dom_func")
+
+    c3, c4 = st.columns(2)
+    member_func = (
+        frows.groupby(["Participant", "Governance function"])
+             .size()
+             .reset_index(name="count")
+    )
+    top_members = (
+        frows["Participant"]
+             .value_counts()
+             .head(10)
+             .index
+    )
+    member_func = member_func[member_func["Participant"].isin(top_members)]
+    fig = px.bar(
+        member_func,
+        y="Participant",
+        x="count",
+        color="Governance function",
+        orientation="h",
+        barmode="stack",
+        title="Most engaged members by governance function",
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_layout(
+        height=420,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title_text="",
+        legend=dict(
+            orientation="h",
+            y=-0.25,
+            x=0.5,
+            xanchor="center"
+        ),
+    )
+    int_axis(fig, member_func.groupby("Participant")["count"].sum().max() if len(member_func) else 0)
+    show(c3, fig, "dom_members_stack")
+    show(c4, hbar(vc(frows["Forum"]), "Where it is discussed"), "dom_forum")
+
+# ======================================================================================
+# MEMBERS
+# ======================================================================================
+with tab_mem:
+    members = vc(filtered["Participant"], 15)
+    summary = f"{members_phrase(filtered)} appear in this view. "
+    if filtered["Participant"].nunique() > 1 and not members.empty:
+        lead = members.iloc[0]
+        summary += (f"<b>{lead['label']}</b> is the most active "
+                    f"({lead['count']} interactions, {pct(lead['count'], len(filtered))}% of the total). ")
+    summary += ("Use the focus filter for a profile: the domains members engage, how they engage, "
+                "the governance dimensions they emphasise, and their measures.")
+    ai_summary(summary)
+
+    show(st, hbar(members, "Most active members"), "mem_active")
+
+    top_names = members["label"].head(10).tolist()
+    sub = filtered[filtered["Participant"].isin(top_names)]
+    cross = pd.crosstab(sub["Domain Family"], sub["Participant"])
+    if cross.size and cross.shape[1] > 1:
+        show(st, heatmap(cross, "Domain family × member (top members)", height=360, tickangle=-30),
+             "mem_heat")
+
+    st.markdown("#### Member profile")
+    mem_opts = sorted(filtered["Participant"].dropna().unique())
+    mem_sel = st.multiselect("Members (leave empty for all)", mem_opts, key="mem_sel")
+    mdata = filtered if not mem_sel else filtered[filtered["Participant"].isin(mem_sel)]
+    mdims = melt_pairs(mdata, ("Governance Dimension", "Governance Topic"), 5)
+
+    metric_strip(mdata)
+
+    c1, c2 = st.columns(2)
+    show(c1, hbar(vc(mdata["Domain Family"]), "Domains engaged"), "mem_dom")
+    show(c2, hbar(vc(mdata["Governance function"]), "How they engage"), "mem_func")
+
+    c3, c4 = st.columns(2)
+    show(c3, hbar(vc(mdims["Dimension"]), "Governance dimensions emphasised"), "mem_dims")
+    show(c4, hbar(vc(mdata["Forum"]), "Bodies where active"), "mem_forum")
+
+    real = mdata[mdata["Measure"] != NO_MEASURE]
+    if not real.empty:
+        show(st, hbar(vc(real["Measure"], 10), "Measures engaged with"), "mem_meas")
+
+    with st.expander("Read the underlying interaction summaries"):
+        cols_show = [c for c in ["Date", "Participant", "Forum", "Domain Family",
+                                 "Governance function", "Measure", "Interaction_Summary"]
+                     if c in mdata.columns]
+        st.dataframe(mdata[cols_show].sort_values("Date"), width="stretch", hide_index=True)
+
+# ======================================================================================
+# MEASURES
+# ======================================================================================
+with tab_meas:
+    real_measures = filtered[filtered["Measure"] != NO_MEASURE]
+    owners = vc(filtered[filtered["Measure_Owner"] != "Not applicable"]["Measure_Owner"], 12)
+    mtop = vc(real_measures["Measure"], 1)
+
+    summary = f"<b>{real_measures['Measure'].nunique()} named measures</b> are under discussion. "
+    if not mtop.empty:
+        summary += f"The most contested is <b>{mtop.iloc[0]['label']}</b>. "
+    if not owners.empty:
+        summary += (f"<b>{owners.iloc[0]['label']}</b> owns the most measures under scrutiny. "
+                    "Use the focus filter to study specific measures.")
+    ai_summary(summary)
+
+    c1, c2 = st.columns(2)
+    show(c1, hbar(vc(real_measures["Measure"], 12), "Most-discussed measures"), "meas_top")
+    show(c2, hbar(owners, "Measure owners (under scrutiny)"), "meas_owners")
+
+    st.markdown("#### Focus on measures")
+    opts = sorted(real_measures["Measure"].dropna().unique())
+    if opts:
+        sel = st.multiselect("Measures (leave empty for all)", opts, key="meas_sel")
+        mdata = real_measures if not sel else filtered[filtered["Measure"].isin(sel)]
+
+        owner_val = mdata["Measure_Owner"].mode()
+        cstats = st.columns(4)
+        cstats[0].metric("Interactions", len(mdata))
+        cstats[1].metric("Members engaged", mdata["Participant"].nunique())
+        cstats[2].metric("Bodies", mdata["Forum"].nunique())
+        cstats[3].metric("Top owner", owner_val.iloc[0] if not owner_val.empty else "—")
+
+        c1, c2 = st.columns(2)
+        show(c1, hbar(vc(mdata["Participant"], 12), "Who engages these measures"), "meas_who")
+        show(c2, hbar(vc(mdata["Governance function"]), "How they are engaged"), "meas_how")
+
+        c3, c4 = st.columns(2)
+        show(c3, hbar(vc(mdata["Domain Family"]), "Domain framing"), "meas_dom")
+        show(c4, hbar(vc(mdata["Forum"]), "Where they are discussed"), "meas_forum")
+    else:
+        st.info("No named measures in the current view — adjust the filters.")
+
+
+# ======================================================================================
+# WTO BODIES
+# ======================================================================================
+with tab_bodies:
+    bodies = vc(filtered["Forum"])
+    top_body = vc(filtered["Forum"], 1)
+
+    summary = f"This view covers <b>{filtered['Forum'].nunique()} WTO bodies</b>. "
+    if not top_body.empty:
+        summary += f"The most active body is <b>{top_body.iloc[0]['label']}</b>. "
+    summary += "Compare participation, policy focus and governance patterns across WTO bodies."
+    ai_summary(summary)
+
+    show(st, hbar(bodies, "Interactions by WTO body"), "body_overview")
+
+    st.markdown("#### Focus on WTO bodies")
+    body_opts = sorted(filtered["Forum"].dropna().unique())
+    body_sel = st.multiselect(
+        "WTO bodies (leave empty for all)",
+        body_opts,
+        key="body_sel",
+    )
+
+    bdata = filtered if not body_sel else filtered[filtered["Forum"].isin(body_sel)]
+
+    metric_strip(bdata)
+
+    c1, c2 = st.columns(2)
+    show(c1, hbar(vc(bdata["Participant"], 12), "Most active members"), "body_members")
+    show(c2, hbar(vc(bdata[bdata["Measure"] != NO_MEASURE]["Measure"], 12),
+                  "Most discussed measures"), "body_measures")
+
+    c3, c4 = st.columns(2)
+    show(c3, hbar(vc(bdata["Domain Family"]), "Most discussed domain families"), "body_domains")
+    show(c4, hbar(vc(bdata["Governance function"]), "Governance functions"), "body_functions")
+
+    st.markdown("#### Cross-body comparisons")
+
+    c5, c6 = st.columns(2)
+
+    stacked = (
+        filtered.groupby(["Forum", "Governance function"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    fig = px.bar(
+        stacked,
+        y="Forum",
+        x="count",
+        color="Governance function",
+        orientation="h",
+        barmode="stack",
+        title="Governance functions across WTO bodies",
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_layout(
+        height=420,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title_text="",
+        legend=dict(
+            orientation="h",
+            y=-0.25,
+            x=0.5,
+            xanchor="center",
+        ),
+    )
+    int_axis(fig, stacked.groupby("Forum")["count"].sum().max() if len(stacked) else 0)
+    show(c5, fig, "body_stack")
+
+    heat = pd.crosstab(filtered["Domain Family"], filtered["Forum"])
+    if heat.size:
+        show(
+            c6,
+            heatmap(
+                heat,
+                "Domain families across WTO bodies",
+                height=420,
+                tickangle=-20,
+            ),
+            "body_heat",
+        )
 
     with st.expander("Read the underlying interactions"):
         cols_show = [
