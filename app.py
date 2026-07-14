@@ -289,6 +289,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+col1, col2 = st.columns([1,1])
+with col1:
+    st.caption("**Coverage:** 1 Jan 2026 to 15 Jun 2026")
+with col2:
+    st.caption("**Last updated:** 14 Jul 2026")
+
 st.caption(
     "**WTO Body legend:** "
     "**GC** = General Council · "
