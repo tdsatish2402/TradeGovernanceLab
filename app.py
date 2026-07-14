@@ -324,49 +324,36 @@ with tab_overview:
     ai_summary(summary)
 
 
-    st.markdown("### Interactive Explorer")
+    st.markdown("### Explore the dataset")
 
-    level1 = st.selectbox(
-        "Step 1. Choose a primary dimension",
-        ["Domain Family", "Measure", "Member", "Governance Function", "WTO Body"],
-        key="ov_drill1",
+    view = st.radio(
+        "Analyse interactions by",
+        [
+            "Measures",
+            "Members",
+            "Domain Families",
+            "Governance Functions",
+            "WTO Bodies",
+        ],
+        horizontal=True,
+        key="overview_selector",
     )
 
-    mapping = {
-        "Domain Family": ("Domain Family", filtered),
-        "Measure": ("Measure", real_measures),
-        "Member": ("Participant", filtered),
-        "Governance Function": ("Governance function", filtered),
-        "WTO Body": ("Forum", filtered),
-    }
+    if view == "Measures":
+        fig = hbar(vc(real_measures["Measure"], 12), "Top measures (by interactions)")
+    elif view == "Members":
+        fig = hbar(vc(filtered["Participant"], 12), "Top members (by interactions)")
+    elif view == "Domain Families":
+        fig = hbar(vc(filtered["Domain Family"]), "Domain family share")
+    elif view == "Governance Functions":
+        fig = hbar(vc(filtered["Governance function"]), "How members engage")
+    else:
+        fig = hbar(vc(filtered["Forum"]), "Activity by WTO body")
 
-    col, base = mapping[level1]
+    show(st, fig, "overview_dynamic_chart")
 
-    vals = sorted([v for v in base[col].dropna().unique()])
-    chosen = st.selectbox(f"Step 2. Select a {level1}", vals, key="ov_drill2")
-
-    subset = base[base[col] == chosen]
-
-    next_map = {
-        "Domain Family": ("Measure", subset[subset["Measure"] != NO_MEASURE]),
-        "Measure": ("Participant", subset),
-        "Member": ("Governance function", subset),
-        "Governance Function": ("Participant", subset),
-        "WTO Body": ("Domain Family", subset),
-    }
-
-    next_col, next_df = next_map[level1]
-
-    st.markdown(f"#### Breakdown of **{chosen}**")
-
-    show(
-        st,
-        hbar(vc(next_df[next_col], 15), f"{next_col} within {chosen}"),
-        "overview_drilldown",
-    )
-
-    with st.expander("Show underlying interactions"):
-        cols = [
+    with st.expander("Show underlying data"):
+        display_cols = [
             c for c in [
                 "Date",
                 "Participant",
@@ -375,10 +362,11 @@ with tab_overview:
                 "Governance function",
                 "Measure",
                 "Interaction_Summary",
-            ] if c in subset.columns
+            ]
+            if c in filtered.columns
         ]
         st.dataframe(
-            subset[cols].sort_values("Date"),
+            filtered[display_cols].sort_values("Date"),
             width="stretch",
             hide_index=True,
         )
