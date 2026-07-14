@@ -39,11 +39,11 @@ HEAT_SCALE = ["#F4F7F9", "#BBD0DC", "#7FA9C0", "#4E7E9C", "#2E5C78"]
 
 # WTO bodies shown by their full names (no bracketed codes, "Committee" spelled out).
 FORUM_NAMES = {
-    "GC": "General Council",
-    "CTG": "Council for Trade in Goods",
-    "CTD": "Committee on Trade & Development",
-    "CTE": "Committee on Trade & Environment",
-    "CTF": "Committee on Trade Facilitation",
+    "GC": "GC",
+    "CTG": "CTG",
+    "CTD": "CTD",
+    "CTE": "CTE",
+    "CTF": "CTF",
 }
 
 PCONF = {"displayModeBar": False, "responsive": True}   # hide plotly toolbar → no title overlap
@@ -288,6 +288,16 @@ st.markdown(
     "<div class='app-sub'>How WTO members engage with trade-policy topics across different WTO bodies.</div>",
     unsafe_allow_html=True,
 )
+
+st.caption(
+    "**WTO Body legend:** "
+    "**GC** = General Council · "
+    "**CTG** = Council for Trade in Goods · "
+    "**CTD** = Committee on Trade and Development · "
+    "**CTE** = Committee on Trade and Environment · "
+    "**CTF** = Committee on Trade Facilitation"
+)
+
 
 if filtered.empty:
     st.warning("No rows match the current filters. Use **Reset filters** in the sidebar.")
